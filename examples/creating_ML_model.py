@@ -6,10 +6,8 @@
 import sys
 import os
 
-header = str(os.getcwd())
-sub_module = header + r'\Documents\GitHub'
-full_path = sub_module + r'\PyIR\src'
-sys.path.append(full_path)
+sys.path.append(r'C:\Users\laser\Documents\PHDFILES\github\PyIR\src')
+
 
 
 import pyir_spectralcollection as pir
@@ -25,7 +23,7 @@ tile_1.update_sums()
 
 #replicate loading steps to obtain tissue spectra
 ## Identification of tissue spectra by clustering the Amide I and II peaks
-k_means = tile_1.K_means_cluster(tile_1.area_between(1750,1500, 
+k_means = tile_1.K_means_cluster(tile_1.area_between(1750,1500,
                         tile_1.data, tile_1.wavenumbers).reshape(-1,1), clusters=2)
 k_means_pred = k_means.labels_
 
@@ -34,8 +32,8 @@ k_means_pred = k_means.labels_
 Group_0_mean = np.reshape(np.mean(tile_1.apply_mask(tile_1.data, k_means_pred == 0), axis=0),(1,tile_1.wavenumbers.shape[0]))
 Group_1_mean = np.reshape(np.mean(tile_1.apply_mask(tile_1.data, k_means_pred == 1), axis=0),(1,tile_1.wavenumbers.shape[0]))
 
-areas = tile_1.area_between(1750, 1500, 
-                          np.concatenate((Group_0_mean,Group_1_mean)), 
+areas = tile_1.area_between(1750, 1500,
+                          np.concatenate((Group_0_mean,Group_1_mean)),
                           tile_1.wavenumbers)
 
 wax_mask = (k_means_pred == np.where(areas == np.min(areas))[0][0])

@@ -990,6 +990,9 @@ class PyIR_SpectralCollection:
 
         return data[Mask,:]
 
+    def spectral_sample(self,data,samples):
+        rng = np.random.default_rng()
+        return rng.choice(data,size=samples,axis=0)
 
     def random_sample(self, Data, labels, size=0, seed=None, **kwargs):
         """Randomly assigns data samples and labels to training and test sets
@@ -1567,6 +1570,39 @@ class PyIR_SpectralCollection:
             xpixels = self.xpixels
 
         return pyir_image.PyIR_Image.cluster_rebuild(**locals())
+
+    def reconstruct_full3d(self, data, tissue_mask):
+        """Turns 2-D data of size [n<xpixels*ypixels,band_size]
+        to a 3D, full datacube of size [ypixels,xpixels,bandsize]
+
+        :returns numpy array datacube
+
+        """
+        if len(tissue_mask.shape) > 1:
+            tissue_mask = tissue_mask.flatten()
+
+        spectral_bands = data.shape[-1]
+        blank_spectra = np.zeros((1,spectral_bands))
+
+        tissue_mask = np.where(tissue_mask[:]==0)[0]
+        tissue_mask = np.concatenate(([-1,],tissue_mask, [self.xpixels*self.ypixels,]))
+
+        pointer = 0
+        i_map = np.full((self.xpixels*self.ypixels,spectral_bands),blank_spectra)
+        for first, second in zip(tissue_mask, tissue_mask[1:]):
+            if second-first == 1: continue
+
+            tissue_band_length = second-(first+1)
+            i_map[first+1:second] = data[pointer:pointer+tissue_band_length]
+            pointer += tissue_band_length
+
+        data_cube = np.reshape(i_map,(self.ypixels,self.xpixels,spectral_bands))
+
+        return data_cube
+
+
+
+
 
     def basic_EMSC_model(self, Ref_spectra, wavenums, **kwargs):
         """
