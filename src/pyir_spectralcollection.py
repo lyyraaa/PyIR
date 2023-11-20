@@ -990,9 +990,29 @@ class PyIR_SpectralCollection:
 
         return data[Mask,:]
 
-    def spectral_sample(self,data,samples):
+    def spectral_sample(self,data,samples,window=0,combine="concatenate"):
+        # combine options:
+            # concatenate appends the window sizes to each other, this will mess up wavenumbers
+                # e.g. a sample of 5 spectra with window size 3 and spectral dimension 10 will
+                # have shape [5, 30] instead of [5, 10]
+            # sum will sum them
+            # mean will mean them
         rng = np.random.default_rng()
-        return rng.choice(data,size=samples,axis=0)
+        if window == 0:
+            return rng.choice(data,size=samples,axis=0)
+
+        sample_from = np.array(list(zip(*[data[x:,:] for x in range(window)])))
+
+        #if combine == "concatenate":
+        sample_concat = np.hstack([sample_from[:,x,:] for x in range(window)])
+        #if combine == "sum":
+        sample_sum = np.sum(sample_from, axis=1)
+        #if combine == "mean":
+        sample_mean = np.mean(sample_from, axis=1)
+
+        #sample = rng.choice(sample_from,size=samples,axis=0)
+        sample_concat,sample_sum,sample_mean = rng.choice(sample_concat,size=samples,axis=0),rng.choice(sample_sum,size=samples,axis=0),rng.choice(sample_mean,size=samples,axis=0)
+        return sample_concat,sample_sum,sample_mean
 
     def random_sample(self, Data, labels, size=0, seed=None, **kwargs):
         """Randomly assigns data samples and labels to training and test sets
@@ -1571,38 +1591,35 @@ class PyIR_SpectralCollection:
 
         return pyir_image.PyIR_Image.cluster_rebuild(**locals())
 
-    def reconstruct_full3d(self, data, tissue_mask):
+    def reconstruct_full3d(self, data, tissue_mask,xpixels=None,ypixels=None):
         """Turns 2-D data of size [n<xpixels*ypixels,band_size]
         to a 3D, full datacube of size [ypixels,xpixels,bandsize]
 
         :returns numpy array datacube
-
         """
+
+        if not xpixels: xpixels=self.xpixels
+        if not ypixels: ypixels=self.ypixels
+
+        data = np.array(data)
         if len(tissue_mask.shape) > 1:
             tissue_mask = tissue_mask.flatten()
+        mask = np.array(tissue_mask).astype(int)
 
         spectral_bands = data.shape[-1]
-        blank_spectra = np.zeros((1,spectral_bands))
+        blank_spectrum = np.zeros((1,spectral_bands))
 
-        tissue_mask = np.where(tissue_mask[:]==0)[0]
-        tissue_mask = np.concatenate(([-1,],tissue_mask, [self.xpixels*self.ypixels,]))
+        cumsum = 0
+        for idx in range(len(tissue_mask)):
+            if tissue_mask[idx]:
+                mask[idx] = cumsum
+                cumsum+=1
+            else:
+                mask[idx] = -1
 
-        pointer = 0
-        i_map = np.full((self.xpixels*self.ypixels,spectral_bands),blank_spectra)
-        for first, second in zip(tissue_mask, tissue_mask[1:]):
-            if second-first == 1: continue
-
-            tissue_band_length = second-(first+1)
-            i_map[first+1:second] = data[pointer:pointer+tissue_band_length]
-            pointer += tissue_band_length
-
-        data_cube = np.reshape(i_map,(self.ypixels,self.xpixels,spectral_bands))
-
-        return data_cube
-
-
-
-
+        data = np.concatenate([data,blank_spectrum],axis=0)
+        reconstructed = data[mask].reshape(ypixels,xpixels,spectral_bands)
+        return reconstructed
 
     def basic_EMSC_model(self, Ref_spectra, wavenums, **kwargs):
         """

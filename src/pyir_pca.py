@@ -142,7 +142,7 @@ class PyIR_PCA:
         plt.legend(loc = 'best')
         plt.show()
 
-    def plot_loading(self, prin_comp, wavenums=0):
+    def plot_loading(self, prin_comp, ax, wavenums=0):
         """Plots principal component loading across the wavenumber range.
 
         :param prin_comp: Which principal component to use in plot y-axis.
@@ -160,14 +160,19 @@ class PyIR_PCA:
             temp = 1
             wavenums = np.arange(0, self.pca_loadings[prin_comp-1,:].shape[0])
 
-        plt.figure()
-        plt.plot(np.ravel(wavenums), self.pca_loadings[prin_comp-1,:])
-        plt.ylabel('weight')
-        plt.xlabel('wavenumber cm-1')
+        #plt.figure()
+        #plt.plot(np.ravel(wavenums), self.pca_loadings[prin_comp-1,:])
+        ax.plot(np.ravel(wavenums), self.pca_loadings[prin_comp-1,:])
+        #plt.ylabel('weight')
+        ax.set_ylabel('wavenumber cm-1')
+        #plt.xlabel('wavenumber cm-1')
+        ax.set_xlabel('weight')
         if temp == 1:
-            plt.xlabel('array position')
-        plt.title('PCA Loading for Principal Component ' + str(prin_comp))
-        plt.show()
+        #    plt.xlabel('array position')
+            ax.set_xlabel('array position')
+        ax.set_title('PCA Loading for Principal Component ' + str(prin_comp))
+        #plt.show()
+        #return ax
 
 
 
@@ -181,8 +186,12 @@ class PyIR_PCA:
 
         """
         plt.figure()
-        plt.plot(np.cumsum(self.pca_module.explained_variance_ratio_[0:
-                                                            max_prin_comps]))
+        cumsum = np.cumsum(self.pca_module.explained_variance_ratio_[0:max_prin_comps])
+        plt.plot(cumsum)
+        for xval in range(max_prin_comps):
+            if cumsum[xval] > 0.9:
+                plt.axvline(x = xval, color = 'r', label = f'90% Variance at {xval+1} PC')
+                break
         plt.xlabel('number of components')
         plt.ylabel('cumulative explained variance')
         plt.show()
