@@ -176,7 +176,7 @@ class PyIR_PCA:
 
 
 
-    def plot_cum_explained_var(self, max_prin_comps = 15):
+    def plot_cum_explained_var(self, max_prin_comps = 15, axes=None,title=""):
         """Plots cumulative explained variance of the principal components.
 
         :param max_prin_comps: Maximum principal components. Default = 15.
@@ -185,16 +185,26 @@ class PyIR_PCA:
         :returns: matplotlib.pyplot plot
 
         """
-        plt.figure()
+
+        if not axes:
+            fig = plt.figure()
+            ax = plt.axes()
+        else:
+            ax = axes
         cumsum = np.cumsum(self.pca_module.explained_variance_ratio_[0:max_prin_comps])
-        plt.plot(cumsum)
+        ax.plot(cumsum)
+        ax.axvline(x = 15, color = 'g', label = f'{cumsum[15]*100:.2f}% Variance at 16 PC')
         for xval in range(max_prin_comps):
             if cumsum[xval] > 0.9:
-                plt.axvline(x = xval, color = 'r', label = f'90% Variance at {xval+1} PC')
+                ax.axvline(x = xval, color = 'r', label = f'90% Variance at {xval+1} PC')
                 break
-        plt.xlabel('number of components')
-        plt.ylabel('cumulative explained variance')
-        plt.show()
+        ax.set_xlabel('number of components')
+        ax.set_title(title)
+        ax.legend()
+        ax.set_ylabel('cumulative explained variance')
+        if not axes:
+            plt.show()
+
 
     def dimension_reduce(self, data, n_comps=20):
         """Reduces dataset to user defined n_components.
