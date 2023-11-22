@@ -1,6 +1,5 @@
 import sys
 
-sys.path.append(r'C:\Users\laser\Documents\PHDFILES\github\PyIR\src')
 import pyir_spectralcollection as pir
 import pyir_image as pir_im
 import pyir_mask as pir_mask
@@ -136,8 +135,6 @@ class DougalPipeline1(AbstractTransform):
 
         return spectra,wavenumbers,trans_mask
 
-
-
 class DougalPipeline2(AbstractTransform):
     def __init__(self,mean,loadings):
         super().__init__()
@@ -191,5 +188,114 @@ class DougalPipeline2(AbstractTransform):
         spectra = self.kit.vector_norm(spectra)
         # convert to derivative (1st or 2nd, can change it up
         spectra, wavenumbers = self.kit.data_deriv(spectra, wavenumbers, 17, 5, 1)
+        spectra, wavenumbers = self.kit.keep_range(1800,1000, spectra, wavenumbers)
+        return spectra,wavenumbers,trans_mask
+
+class DougalPipeline2_2ndderiv(AbstractTransform):
+    def __init__(self,mean,loadings):
+        super().__init__()
+
+        self.name = "Dougal Transform 2, with second derivative"
+        self.desc = """
+        Quality control (normally amide I threshold)
+        Clip to 3500-960 region
+        Delete wax regions and co2 region
+        PCA smooth/denoise (~23 components)
+        after the pca smooth clip to 1840-960,
+        min2zero
+        vector norm
+        derivative conversion, (2nd derivative)
+        clip to 1800-1000
+        """
+        self.mean = mean
+        self.loadings = loadings
+
+    def trans_func(self,spectra,wavenumbers,trans_mask=[]):
+
+        if len(trans_mask) > 0: rebuild_tis_mask = np.zeros_like(trans_mask)
+        #Quality control (normally amide I threshold)
+        am1 = (self.kit.area_between(
+            1600,1700, spectra, wavenumbers))
+        amide_mask = (am1>2)
+        spectra = self.kit.apply_mask(spectra, amide_mask)
+
+        if len(trans_mask) > 0:
+            count=0
+            for i in np.arange(0, len(trans_mask)):
+                if trans_mask[i] == 1:
+                    rebuild_tis_mask[i] = amide_mask[count]
+                    count = count + 1
+
+            trans_mask = rebuild_tis_mask
+        # Clip to 3500-960 region
+
+        spectra, wavenumbers = self.kit.keep_range(3500,960, spectra, wavenumbers)
+        # Delete wax regions and co2 region
+        spectra, wavenumbers = self.kit.remove_wax(spectra,wavenumbers)
+        spectra, wavenumbers = self.kit.remove_co2(spectra,wavenumbers)
+
+        # PCA smooth/denoise (~23 components)
+        temp_pca = pir_pca.PyIR_PCA()
+        spectra = temp_pca.pca_smoothing(spectra,self.mean,self.loadings,n_comp=23)
+        spectra, wavenumbers = self.kit.keep_range(1840,960, spectra, wavenumbers)
+        # Min2zero all spectra (vertical baseline removal)
+        spectra = self.kit.all_spec_min2zero(spectra)
+        # vector normalise,
+        spectra = self.kit.vector_norm(spectra)
+        # convert to derivative (1st or 2nd, can change it up
+        spectra, wavenumbers = self.kit.data_deriv(spectra, wavenumbers, 17, 5, 2)
+        spectra, wavenumbers = self.kit.keep_range(1800,1000, spectra, wavenumbers)
+        return spectra,wavenumbers,trans_mask
+
+class DougalPipeline2_noderiv(AbstractTransform):
+    def __init__(self,mean,loadings):
+        super().__init__()
+
+        self.name = "Dougal Transform 2, no derivative"
+        self.desc = """
+        Quality control (normally amide I threshold)
+        Clip to 3500-960 region
+        Delete wax regions and co2 region
+        PCA smooth/denoise (~23 components)
+        after the pca smooth clip to 1840-960,
+        min2zero
+        vector norm
+        clip to 1800-1000
+        """
+        self.mean = mean
+        self.loadings = loadings
+
+    def trans_func(self,spectra,wavenumbers,trans_mask=[]):
+
+        if len(trans_mask) > 0: rebuild_tis_mask = np.zeros_like(trans_mask)
+        #Quality control (normally amide I threshold)
+        am1 = (self.kit.area_between(
+            1600,1700, spectra, wavenumbers))
+        amide_mask = (am1>2)
+        spectra = self.kit.apply_mask(spectra, amide_mask)
+
+        if len(trans_mask) > 0:
+            count=0
+            for i in np.arange(0, len(trans_mask)):
+                if trans_mask[i] == 1:
+                    rebuild_tis_mask[i] = amide_mask[count]
+                    count = count + 1
+
+            trans_mask = rebuild_tis_mask
+        # Clip to 3500-960 region
+        spectra, wavenumbers = self.kit.keep_range(3500,960, spectra, wavenumbers)
+        # Delete wax regions and co2 region
+        spectra, wavenumbers = self.kit.remove_wax(spectra,wavenumbers)
+        spectra, wavenumbers = self.kit.remove_co2(spectra,wavenumbers)
+
+        # PCA smooth/denoise (~23 components)
+        temp_pca = pir_pca.PyIR_PCA()
+        spectra = temp_pca.pca_smoothing(spectra,self.mean,self.loadings,n_comp=23)
+        spectra, wavenumbers = self.kit.keep_range(1840,960, spectra, wavenumbers)
+        # Min2zero all spectra (vertical baseline removal)
+        spectra = self.kit.all_spec_min2zero(spectra)
+        # vector normalise,
+        spectra = self.kit.vector_norm(spectra)
+        # convert to derivative (1st or 2nd, can change it up
         spectra, wavenumbers = self.kit.keep_range(1800,1000, spectra, wavenumbers)
         return spectra,wavenumbers,trans_mask
