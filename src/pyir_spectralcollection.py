@@ -1596,36 +1596,30 @@ class PyIR_SpectralCollection:
         to a 3D, full datacube of size [ypixels,xpixels,bandsize]
 
         :returns numpy array datacube
-
         """
+
         if not xpixels: xpixels=self.xpixels
         if not ypixels: ypixels=self.ypixels
 
+        data = np.array(data)
         if len(tissue_mask.shape) > 1:
             tissue_mask = tissue_mask.flatten()
+        mask = np.array(tissue_mask).astype(int)
 
         spectral_bands = data.shape[-1]
-        blank_spectra = np.zeros((1,spectral_bands))
+        blank_spectrum = np.zeros((1,spectral_bands))
 
-        tissue_mask = np.where(tissue_mask[:]==0)[0]
-        tissue_mask = np.concatenate(([-1,],tissue_mask, [xpixels*ypixels,]))
+        cumsum = 0
+        for idx in range(len(tissue_mask)):
+            if tissue_mask[idx]:
+                mask[idx] = cumsum
+                cumsum+=1
+            else:
+                mask[idx] = -1
 
-        pointer = 0
-        i_map = np.full((xpixels*ypixels,spectral_bands),blank_spectra)
-        for first, second in zip(tissue_mask, tissue_mask[1:]):
-            if second-first == 1: continue
-
-            tissue_band_length = second-(first+1)
-            i_map[first+1:second] = data[pointer:pointer+tissue_band_length]
-            pointer += tissue_band_length
-
-        data_cube = np.reshape(i_map,(ypixels,xpixels,spectral_bands))
-
-        return data_cube
-
-
-
-
+        data = np.concatenate([data,blank_spectrum],axis=0)
+        reconstructed = data[mask].reshape(ypixels,xpixels,spectral_bands)
+        return reconstructed
 
     def basic_EMSC_model(self, Ref_spectra, wavenums, **kwargs):
         """
